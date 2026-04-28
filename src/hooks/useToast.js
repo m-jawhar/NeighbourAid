@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, createElement, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import Toast from '../components/UI/Toast';
 
 const ToastContext = createContext(null);
@@ -7,22 +7,22 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const timersRef = useRef(new Map());
 
-  const dismissToast = (id) => {
+  const dismissToast = useCallback((id) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
     const timer = timersRef.current.get(id);
     if (timer) {
       clearTimeout(timer);
       timersRef.current.delete(id);
     }
-  };
+  }, []);
 
-  const showToast = (message, type = 'info') => {
+  const showToast = useCallback((message, type = 'info') => {
     const id = `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
     setToasts((current) => [...current, { id, message, type }]);
     const timer = setTimeout(() => dismissToast(id), 4000);
     timersRef.current.set(id, timer);
     return id;
-  };
+  }, [dismissToast]);
 
   const value = useMemo(
     () => ({
@@ -30,7 +30,7 @@ export function ToastProvider({ children }) {
       showToast,
       dismissToast,
     }),
-    [toasts],
+    [toasts, showToast, dismissToast],
   );
 
   return createElement(

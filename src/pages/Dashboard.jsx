@@ -130,25 +130,29 @@ export default function Dashboard() {
                   const expanded = crisis.id === selectedCrisisId;
 
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={crisis.id}
-                      onClick={() => setSelectedCrisisId(crisis.id)}
                       className={`w-full rounded-2xl border-l-4 bg-white/10 p-4 text-left backdrop-blur ${
                         style.border
                       } ${expanded ? 'ring-2 ring-white/20' : 'hover:bg-white/15'}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{crisis.type}</p>
-                          <p className="mt-1 text-sm text-white/70">{crisis.location}</p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCrisisId(crisis.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{crisis.type}</p>
+                            <p className="mt-1 text-sm text-white/70">{crisis.location}</p>
+                          </div>
+                          <Badge color={style.badge}>{crisis.confidence}%</Badge>
                         </div>
-                        <Badge color={style.badge}>{crisis.confidence}%</Badge>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between text-xs text-white/70">
-                        <span>{timeAgo(crisis.reportedAt)}</span>
-                        <span>{crisis.affectedEstimate}</span>
-                      </div>
+                        <div className="mt-3 flex items-center justify-between text-xs text-white/70">
+                          <span>{timeAgo(crisis.reportedAt)}</span>
+                          <span>{crisis.affectedEstimate}</span>
+                        </div>
+                      </button>
 
                       {expanded && (
                         <div className="mt-4 border-t border-white/10 pt-4">
@@ -166,7 +170,7 @@ export default function Dashboard() {
                           </Button>
                         </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>

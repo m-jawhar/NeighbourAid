@@ -22,7 +22,7 @@ app.add_middleware(
 # Twilio configuration
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER")
+TWILIO_WHATSAPP_NUMBER = os.environ.get("TWILIO_WHATSAPP_NUMBER") or os.environ.get("TWILIO_WHATSAPP_FROM")
 
 # Initialize Twilio Client only if credentials exist
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN else None
@@ -35,6 +35,11 @@ class WhatsAppMessage(BaseModel):
 async def send_whatsapp(payload: WhatsAppMessage):
     if not twilio_client:
         raise HTTPException(status_code=500, detail="Twilio credentials are not configured in the backend.")
+    if not TWILIO_WHATSAPP_NUMBER:
+        raise HTTPException(
+            status_code=500,
+            detail="Twilio sender number missing. Set TWILIO_WHATSAPP_NUMBER (or TWILIO_WHATSAPP_FROM) in backend/.env.",
+        )
 
     # Clean the phone number and ensure it starts with whatsapp:+
     # Ex: if frontend sends "9876543210" or "+919876543210"

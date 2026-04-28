@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getCrisisAnalysis, getVolunteerMatches } from '../services/geminiService';
 
 export default function useGemini() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const analyzeCrisis = async (crisisData) => {
+  const analyzeCrisis = useCallback(async (crisisData) => {
     setLoading(true);
     setError('');
     try {
@@ -17,9 +17,9 @@ export default function useGemini() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const matchVolunteers = async (crisisType, location, volunteers) => {
+  const matchVolunteers = useCallback(async (crisisType, location, volunteers) => {
     setLoading(true);
     setError('');
     try {
@@ -31,12 +31,15 @@ export default function useGemini() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return {
-    analyzeCrisis,
-    matchVolunteers,
-    loading,
-    error,
-  };
+  return useMemo(
+    () => ({
+      analyzeCrisis,
+      matchVolunteers,
+      loading,
+      error,
+    }),
+    [analyzeCrisis, matchVolunteers, loading, error],
+  );
 }

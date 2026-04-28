@@ -2,17 +2,76 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || 'demo-key');
+const configuredModel = (import.meta.env.VITE_GEMINI_MODEL || '').trim();
+const preferredModels = Array.from(
+  new Set(
+    [
+      configuredModel,
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+    ].filter(Boolean),
+  ),
+);
+let activeModel = configuredModel || null;
 
 function isGeminiConfigured() {
   return Boolean(apiKey && apiKey !== 'your_gemini_api_key');
+}
+
+function getCandidateModels() {
+  if (!activeModel) {
+    return preferredModels;
+  }
+  return [activeModel, ...preferredModels.filter((name) => name !== activeModel)];
+}
+
+function shouldTryNextModel(error) {
+  const status = error?.status ?? error?.response?.status ?? error?.cause?.status;
+  const message = String(error?.message || '').toLowerCase();
+  if (status === 404 || status === 429 || status === 503) {
+    return true;
+  }
+  return (
+    message.includes('not found') ||
+    message.includes('unsupported') ||
+    message.includes('deprecated') ||
+    message.includes('high demand') ||
+    message.includes('resource exhausted') ||
+    message.includes('requested entity was not found')
+  );
+}
+
+async function generateContentWithFallback(prompt) {
+  let lastError = null;
+
+  for (const modelName of getCandidateModels()) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      activeModel = modelName;
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (shouldTryNextModel(error)) {
+        console.warn(`Gemini model "${modelName}" unavailable, trying next model.`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError || new Error('No Gemini model is currently available.');
+}
+
+function parseJsonResponse(text) {
+  const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  return JSON.parse(cleaned);
 }
 
 export async function getVolunteerMatches(crisisType, location, volunteers) {
   if (!isGeminiConfigured()) {
     return getMockMatches(crisisType, volunteers);
   }
-
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
   const prompt = `You are an emergency response coordinator AI for NeighborAid, a community crisis platform in Kerala, India.
 
@@ -52,10 +111,9 @@ RESPOND WITH ONLY VALID JSON — no markdown, no explanation:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithFallback(prompt);
     const text = result.response.text();
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
+    return parseJsonResponse(text);
   } catch (error) {
     console.error('Gemini API error:', error);
     return getMockMatches(crisisType, volunteers);
@@ -117,8 +175,6 @@ export async function getCrisisAnalysis(crisisData) {
       estimatedDuration: crisisData.type === 'Flash Flood' ? '2-4 hours active response needed' : '1-3 hours active response needed',
     };
   }
-
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const prompt = `You are an emergency operations analyst for NeighborAid in Kerala, India.
 
 Analyze this crisis event and return only valid JSON:
@@ -137,10 +193,9 @@ Signals:
 ${crisisData.signals.map((signal) => `- ${signal}`).join('\n')}`;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithFallback(prompt);
     const text = result.response.text();
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
+    return parseJsonResponse(text);
   } catch (error) {
     console.error('Gemini crisis analysis error:', error);
     return {
