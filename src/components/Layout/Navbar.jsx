@@ -1,20 +1,50 @@
-import { Menu, ShieldCheck, X } from 'lucide-react';
+import { Menu, ShieldCheck, X, LogOut } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Badge from '../UI/Badge';
 import { MOCK_CRISIS_EVENTS } from '../../config/mockData';
-
-const links = [
-  { label: 'Home', to: '/' },
-  { label: 'Register', to: '/register' },
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Missions', to: '/missions' },
-];
+import { useAuth } from '../../contexts/AuthContext';
+import { logoutUser } from '../../services/firebaseService';
+import { useToast } from '../../hooks/useToast';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, isAdmin, isVolunteer } = useAuth();
+  const { showToast } = useToast();
   const hasLiveCrisis = useMemo(() => MOCK_CRISIS_EVENTS.some((event) => event.status === 'active'), []);
+
+  const links = useMemo(() => {
+    const baseLinks = [{ label: 'Home', to: '/' }];
+    
+    if (!currentUser) {
+      baseLinks.push({ label: 'Register', to: '/register' });
+      baseLinks.push({ label: 'Login', to: '/login' });
+    } else {
+      if (isAdmin) {
+        baseLinks.push({ label: 'Dashboard', to: '/dashboard' });
+        baseLinks.push({ label: 'Manage Admins', to: '/manage-admins' });
+      }
+      if (isVolunteer) {
+        baseLinks.push({ label: 'Profile', to: '/profile' });
+        baseLinks.push({ label: 'Alerts', to: '/alerts' });
+      }
+      baseLinks.push({ label: 'Missions', to: '/missions' });
+    }
+    
+    return baseLinks;
+  }, [currentUser, isAdmin, isVolunteer]);
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      showToast('Logged out successfully', 'success');
+      navigate('/');
+    } catch (error) {
+      showToast('Logout failed', 'error');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-navy/10 bg-white/95 backdrop-blur">
@@ -41,6 +71,15 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          {currentUser && (
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          )}
           {hasLiveCrisis && (
             <Badge color="red" className="animate-pulse">
               LIVE
@@ -73,6 +112,17 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {currentUser && (
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  handleLogout();
+                }}
+                className="rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-600 hover:text-red-600"
+              >
+                Logout
+              </button>
+            )}
             {hasLiveCrisis && (
               <div>
                 <Badge color="red" className="animate-pulse">

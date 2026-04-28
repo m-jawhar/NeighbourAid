@@ -1,6 +1,8 @@
 import { ArrowRight, LockKeyhole, Radar, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
+import { useAuth } from '../contexts/AuthContext';
+import AdminHome from './AdminHome';
 
 const features = [
   {
@@ -24,6 +26,12 @@ const features = [
 ];
 
 export default function Home() {
+  const { currentUser, isAdmin } = useAuth();
+
+  if (currentUser && isAdmin) {
+    return <AdminHome />;
+  }
+
   return (
     <main className="overflow-hidden">
       <section className="relative isolate bg-[radial-gradient(circle_at_top_right,_rgba(13,122,107,0.28),_transparent_30%),linear-gradient(180deg,_#effcf9_0%,_#f8fafc_44%,_#ffffff_100%)]">

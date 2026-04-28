@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import Button from '../components/UI/Button';
 import { useToast } from '../hooks/useToast';
 import { encryptData, deriveEncryptionKey } from '../services/encryptionService';
-import { saveVolunteer } from '../services/firebaseService';
+import { saveVolunteer, registerUser } from '../services/firebaseService';
 
 const skillOptions = ['Doctor', 'Nurse', 'Electrician', 'Swimmer', 'Driver', 'Translator', 'First Aid', 'Construction'];
 const assetOptions = ['Boat', 'Generator', '4x4 Vehicle', 'First Aid Kit', 'Chainsaw', 'Rope & Rescue Gear'];
@@ -11,6 +11,8 @@ const languageOptions = ['Malayalam', 'Tamil', 'English', 'Hindi', 'Kannada'];
 
 const initialForm = {
   name: '',
+  email: '',
+  password: '',
   phone: '',
   livesInKerala: true,
   skills: [],
@@ -67,6 +69,12 @@ export default function Register() {
     if (targetStep === 1) {
       if (!form.name.trim()) {
         nextErrors.name = 'Name is required.';
+      }
+      if (!form.email.trim() || !form.email.includes('@')) {
+        nextErrors.email = 'Valid email is required.';
+      }
+      if (form.password.length < 6) {
+        nextErrors.password = 'Password must be at least 6 characters.';
       }
       if (!/^[6-9]\d{9}$/.test(form.phone)) {
         nextErrors.phone = 'Enter a valid 10-digit Indian mobile number.';
@@ -147,7 +155,12 @@ export default function Register() {
 
     setSubmitting(true);
     try {
-      const generatedId = `vol_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      const authUser = await registerUser(form.email, form.password, 'volunteer', {
+        name: form.name.trim(),
+        phone: form.phone,
+      });
+
+      const generatedId = authUser.uid;
       const phoneWithCode = `+91${form.phone}`;
       const key = deriveEncryptionKey(phoneWithCode);
       const profile = {
@@ -261,6 +274,28 @@ export default function Register() {
                   placeholder="Enter your full name"
                 />
                 {errors.name && <p className="mt-2 text-sm text-red-600">{errors.name}</p>}
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:border-primary-300 focus:outline-none"
+                  placeholder="Enter your email"
+                />
+                {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">Password</span>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:border-primary-300 focus:outline-none"
+                  placeholder="••••••••"
+                />
+                {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
               </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">Phone</span>

@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -11,7 +12,12 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut 
+} from 'firebase/auth';
+import { db, auth } from '../config/firebase';
 import { MOCK_VOLUNTEERS } from '../config/mockData';
 import { decryptData, deriveEncryptionKey } from './encryptionService';
 
@@ -382,3 +388,82 @@ export async function getBreakGlassAuditLog() {
 export async function getBreakGlassStatus() {
   return getBreakGlassState();
 }
+
+// Authentication & User Management
+export async function registerUser(email, password, role = 'volunteer', additionalData = {}) {
+  try {
+    // If in demo mode, just return a fake user
+    if (DEMO_MODE) {
+      warnDemoMode();
+      return { uid: `demo_${Date.now()}`, email, role, ...additionalData };
+    }
+
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    await setDoc(doc(db, 'users', user.uid), {
+      email,
+      role,
+      createdAt: serverTimestamp(),
+      ...additionalData,
+    });
+
+    return user;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
+}
+
+export async function loginUser(email, password) {
+  try {
+    if (DEMO_MODE) {
+       warnDemoMode();
+       return { uid: 'demo_user', email };
+    }
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
+
+export async function logoutUser() {
+  try {
+    if (DEMO_MODE) return;
+    await signOut(auth);
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  }
+}
+
+// Emergency Logic
+export async function getNearestVolunteers(crisisLocation, maxDistanceKm = 50) {
+  try {
+    const volunteers = await getVolunteers();
+    // In a real app, use Geo queries. For this demo, we do client-side filtering if lat/lng is available
+    // Mock simple distance calculation or just return available ones if no strict coords
+    
+    return volunteers.filter(v => {
+      if (!v.lat || !v.lng || !crisisLocation.lat || !crisisLocation.lng) return true; // fallback
+      
+      const R = 6371; // Radius of the earth in km
+      const dLat = (v.lat - crisisLocation.lat) * Math.PI / 180;
+      const dLon = (v.lng - crisisLocation.lng) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(crisisLocation.lat * Math.PI / 180) * Math.cos(v.lat * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+      const d = R * c; // Distance in km
+      
+      return d <= maxDistanceKm;
+    });
+  } catch (error) {
+    console.error('Failed to get nearest volunteers:', error);
+    return [];
+  }
+}
+
